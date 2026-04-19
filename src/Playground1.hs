@@ -19,9 +19,11 @@ t2 = L.do
   x <- L.pure 1
   L.pure x
 
-lockScope :: (Int %1 -> IO Int) -> IO Int
+lockScope :: (Int %1 -> IO (Int, a)) -> IO a
 lockScope run = L.do
-  run 1
+  (i, a) <- run 1
+  case move i of Ur _ -> pure ()
+  pure a
 
 lock ::
   Int %1 ->
@@ -29,11 +31,11 @@ lock ::
 lock x = do
   pure x
 
-f2 :: IO Int
+f2 :: IO String
 f2 = L.do
   lockScope \x -> L.do
     x2 <- lock x
     IO.fromSystemIO $ putStrLn "aa"
     Ur line <- IO.fromSystemIOU $ getLine
     x2 <- lock x2
-    pure x2
+    pure (x2, line)
