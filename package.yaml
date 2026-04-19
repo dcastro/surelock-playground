@@ -23,6 +23,10 @@ dependencies:
   - base
   - linear-base
 
+default-extensions:
+  - GHC2024
+  - BlockArguments
+
 ghc-options:
   - -Weverything
   - -Wno-name-shadowing
