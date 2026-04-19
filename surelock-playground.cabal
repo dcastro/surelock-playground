@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Lib
+      Playground1
   other-modules:
       Paths_surelock_playground
   autogen-modules:
@@ -34,7 +35,8 @@ library
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      base >=4.7 && <5
+      base
+    , linear-base
   default-language: Haskell2010
 
 executable surelock-playground-exe
@@ -47,7 +49,8 @@ executable surelock-playground-exe
       app
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      base
+    , linear-base
     , surelock-playground
   default-language: Haskell2010
 
@@ -62,6 +65,7 @@ test-suite surelock-playground-test
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      base
+    , linear-base
     , surelock-playground
   default-language: Haskell2010
