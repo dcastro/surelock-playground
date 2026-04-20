@@ -8,6 +8,7 @@
 
 module Playground1 where
 
+import Control.Concurrent.Async (async, wait)
 import Control.Functor.Linear qualified as L
 import Prelude.Linear (Ur (..), move)
 import Prelude.Linear qualified as L hiding (IO)
@@ -21,11 +22,14 @@ t2 = L.do
   x <- L.pure 1
   L.pure x
 
-lockScope :: (MutexKey %1 -> L.IO (MutexKey, a)) -> L.IO a
-lockScope run = L.do
+lockScope' :: (MutexKey %1 -> L.IO (MutexKey, a)) -> L.IO a
+lockScope' run = L.do
   (i, a) <- run 1
-  case move i of Ur _ -> L.pure ()
+  case L.consume i of () -> L.pure ()
   L.pure a
+
+lockScope :: (MutexKey %1 -> L.IO (MutexKey, Ur a)) -> IO a
+lockScope run = L.withLinearIO (lockScope' run)
 
 -- Consume the key and return a new one
 lock ::
@@ -34,26 +38,30 @@ lock ::
 lock x = do
   L.pure x
 
-f2 :: L.IO String
+f2 :: IO String
 f2 = do
   lockScope \key -> L.do
     key2 <- lock key
     L.fromSystemIO (putStrLn "aa")
-    -- This doesn't compile, `print` is not linear.
-    -- IO.fromSystemIO $ print key2
 
     -- Non-linear IO with unrestricted value
-    Ur line <- L.fromSystemIOU getLine
-    -- Non-linear IO with linear value
-    line <- L.fromSystemIO getLine
-    -- Consume linear variable in non-linear IO
+    Ur line1 <- L.fromSystemIOU getLine
+
+    -- System.IO with linear value, and the consume it in System.IO
     line2 <- L.fromSystemIO getLine
     L.fromSystemIO (putStrLnLinear line2)
+
+    -- Fork a thread and create a new lockScope in it
+    Ur str <- L.fromSystemIOU do
+      wait =<< async do
+        lockScope \key -> L.do
+          key2 <- lock key
+          L.pure (key2, Ur "str")
 
     Ur () <- L.fromSystemIOU L.$ L.withLinearIO do
       L.pure L.$ move ()
 
-    L.pure (key2, line)
+    L.pure (key2, Ur line1)
 
 putStrLnLinear :: String %1 -> IO ()
 putStrLnLinear str =
@@ -79,7 +87,7 @@ lock' x = do
 
 lock'Demo :: L.IO String
 lock'Demo =
-  lockScope \key -> L.do
+  lockScope' \key -> L.do
     -- This line works
     key2 <- L.fromSystemIO L.$ lock' key
 
