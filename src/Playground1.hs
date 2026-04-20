@@ -17,11 +17,6 @@ import System.IO.Linear qualified as L
 -- Dummy type for testing
 type MutexKey = Int
 
-t2 :: L.IO Int
-t2 = L.do
-  x <- L.pure 1
-  L.pure x
-
 lockScope' :: (MutexKey %1 -> L.IO (MutexKey, a)) -> L.IO a
 lockScope' run = L.do
   (i, a) <- run 1
@@ -52,7 +47,7 @@ f2 = do
     L.fromSystemIO (putStrLnLinear line2)
 
     -- Fork a thread and create a new lockScope in it
-    Ur str <- L.fromSystemIOU do
+    Ur _str <- L.fromSystemIOU do
       wait =<< async do
         lockScope \key -> L.do
           key2 <- lock key
