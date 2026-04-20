@@ -30,13 +30,6 @@ lock ::
 lock x = do
   L.pure x
 
-lock' ::
-  Int %1 ->
-  IO Int
-lock' x = do
-  case move x of
-    Ur x' -> pure x'
-
 f2 :: L.IO String
 f2 = do
   lockScope \key -> L.do
@@ -56,13 +49,37 @@ f2 = do
     Ur () <- L.fromSystemIOU L.$ L.withLinearIO do
       L.pure L.$ move ()
 
-    -- Use key in non-linear IO
-    key3 <- L.fromSystemIO L.$ lock' key2
-
-    key4 <- lock key3
-    L.pure (key4, line)
+    L.pure (key2, line)
 
 putStrLnLinear :: String %1 -> IO ()
 putStrLnLinear str =
   case move str of
     Ur str' -> putStrLn str'
+
+{-
+NOTE: this is useless.
+We can call `lock'` in System.IO and prove that the lock has been consumed exactly once
+ONLY if we don't compose `lock'` with e.g. `>>=`.
+See `lock'Demo` for an example
+-}
+lock' ::
+  Int %1 ->
+  IO Int
+lock' x = do
+  case move x of
+    Ur x' -> pure x'
+
+lock'Demo :: L.IO String
+lock'Demo =
+  lockScope \key -> L.do
+    -- This line works
+    key2 <- L.fromSystemIO L.$ lock' key
+
+    -- This doesn't work
+    -- key2 <- L.fromSystemIO L.$ lock' key >>= pure
+
+    -- This doesn't work
+    -- key2 <- L.fromSystemIO L.$ do
+    --   x <- lock' key
+    --   pure x
+    L.pure (key2, "")
