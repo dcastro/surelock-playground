@@ -13,20 +13,24 @@ import Prelude.Linear (Ur (..), move)
 import Prelude.Linear qualified as L hiding (IO)
 import System.IO.Linear qualified as L
 
+-- Dummy type for testing
+type MutexKey = Int
+
 t2 :: L.IO Int
 t2 = L.do
   x <- L.pure 1
   L.pure x
 
-lockScope :: (Int %1 -> L.IO (Int, a)) -> L.IO a
+lockScope :: (MutexKey %1 -> L.IO (MutexKey, a)) -> L.IO a
 lockScope run = L.do
   (i, a) <- run 1
   case move i of Ur _ -> L.pure ()
   L.pure a
 
+-- Consume the key and return a new one
 lock ::
-  Int %1 ->
-  L.IO Int
+  MutexKey %1 ->
+  L.IO MutexKey
 lock x = do
   L.pure x
 
@@ -56,6 +60,10 @@ putStrLnLinear str =
   case move str of
     Ur str' -> putStrLn str'
 
+----------------------------------------------------------------------------
+-- Lock in System.IO
+----------------------------------------------------------------------------
+
 {-
 NOTE: this is useless.
 We can call `lock'` in System.IO and prove that the lock has been consumed exactly once
@@ -63,8 +71,8 @@ ONLY if we don't compose `lock'` with e.g. `>>=`.
 See `lock'Demo` for an example
 -}
 lock' ::
-  Int %1 ->
-  IO Int
+  MutexKey %1 ->
+  IO MutexKey
 lock' x = do
   case move x of
     Ur x' -> pure x'
