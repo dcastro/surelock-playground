@@ -5,7 +5,7 @@
 {-# LANGUAGE NoFieldSelectors #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 
-module Surelock.RIO where
+module SurelockRIO where
 
 import Control.Concurrent (MVar)
 import Control.Concurrent qualified as MVar
