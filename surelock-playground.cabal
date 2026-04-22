@@ -29,6 +29,7 @@ library
       Playground1
       Surelock
       Surelock.RIO
+      SurelockRIO
   other-modules:
       Paths_surelock_playground
   autogen-modules:
