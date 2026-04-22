@@ -27,7 +27,7 @@ data MutexKey (lvl :: Nat) (scope :: Type) = MutexKey
 newtype Mutex (lvl :: Nat) a = Mutex {getVar :: MVar a}
 
 data MG a = MG
-  { committedValue :: Ur a,
+  { committedValue :: a,
     var :: MVar a
   }
 
@@ -48,17 +48,17 @@ lock MutexKey m = L.do
   resource <- RIO.unsafeAcquire acq rel
   -- NOTE: unsafeAcquire does not let us return additional data (e.g. `committedValue`), so
   -- we have to retrieve the `committedValue` from the resource after acquiring it.
-  (Ur committedValue, resource) <- RIO.unsafeFromSystemIOResource (\mg -> pure (L.unur mg.committedValue)) resource
+  (Ur committedValue, resource) <- RIO.unsafeFromSystemIOResource (\mg -> pure mg.committedValue) resource
 
   L.pure (MutexGuard {resource, newValue = Ur committedValue}, MutexKey)
   where
     acq :: L.IO (Ur (MG a))
     acq = L.do
       Ur a <- L.fromSystemIOU L.$ MVar.takeMVar m.getVar
-      L.pure (Ur (MG {committedValue = Ur a, var = m.getVar}))
+      L.pure (Ur (MG {committedValue = a, var = m.getVar}))
 
     rel :: MG a -> L.IO ()
-    rel (MG (Ur committedValue) var) =
+    rel (MG (committedValue) var) =
       L.void L.$ L.fromSystemIO L.$ MVar.putMVar var committedValue
 
 readGuard :: MutexGuard a %1 -> RIO (Ur a, MutexGuard a)
@@ -71,7 +71,7 @@ writeGuard (MutexGuard resource (Ur _)) newValue =
 
 releaseGuard :: MutexGuard a %1 -> RIO ()
 releaseGuard (MutexGuard (Internal.UnsafeResource key res) (Ur newValue)) =
-  RIO.release (Internal.UnsafeResource key (res {committedValue = Ur newValue}))
+  RIO.release (Internal.UnsafeResource key (res {committedValue = newValue}))
 
 mkMutex :: forall lvl a. a -> IO (Mutex lvl a)
 mkMutex a = do
