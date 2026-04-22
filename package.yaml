@@ -23,6 +23,8 @@ dependencies:
   - base
   - linear-base
   - async
+  - text
+  - containers
 
 default-extensions:
   - GHC2024

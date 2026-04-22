@@ -28,6 +28,7 @@ library
       Lib
       Playground1
       Surelock
+      Surelock.RIO
   other-modules:
       Paths_surelock_playground
   autogen-modules:
@@ -41,7 +42,9 @@ library
   build-depends:
       async
     , base
+    , containers
     , linear-base
+    , text
   default-language: Haskell2010
 
 executable surelock-playground-exe
@@ -59,8 +62,10 @@ executable surelock-playground-exe
   build-depends:
       async
     , base
+    , containers
     , linear-base
     , surelock-playground
+    , text
   default-language: Haskell2010
 
 test-suite surelock-playground-test
@@ -79,6 +84,8 @@ test-suite surelock-playground-test
   build-depends:
       async
     , base
+    , containers
     , linear-base
     , surelock-playground
+    , text
   default-language: Haskell2010
