@@ -62,7 +62,7 @@ mkMutex a = do
 lockScope' ::
   forall a lvl.
   ( forall (scope :: Type).
-    MutexKey 0 scope ->
+    MutexKey 0 scope %1 ->
     L.IO (a, MutexKey lvl scope)
   ) ->
   L.IO a
@@ -75,7 +75,7 @@ lockScope' run = L.do
 lockScope ::
   forall a lvl.
   ( forall (scope :: Type).
-    MutexKey 0 scope ->
+    MutexKey 0 scope %1 ->
     L.IO (Ur a, MutexKey lvl scope)
   ) ->
   IO a
