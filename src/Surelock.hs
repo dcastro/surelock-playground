@@ -20,7 +20,7 @@ import System.IO.Linear qualified as L
 --  * Do not implement `Consumable` / `Movable`
 data MutexKey (lvl :: Nat) (scope :: Type) = MutexKey
 
-data Mutex (lvl :: Nat) a = Mutex {getVar :: MVar a}
+newtype Mutex (lvl :: Nat) a = Mutex {getVar :: MVar a}
 
 -- | Consume the key and return a new key (with an increased level) in linear IO
 lock ::
@@ -98,7 +98,7 @@ usage1 = do
 -- usage2 :: IO ()
 -- usage2 = do
 --   m1 <- mkMutex @0 "hello"
---   m2 <- mkMutex @1 "hello"
+--   m2 <- mkMutex @1 "world"
 --   lockScope \key -> L.do
 --     (Ur _, key) <- lock key m2
 --     (Ur _, key) <- lock key m1
@@ -111,6 +111,6 @@ usage3 = do
   lockScope \key -> L.do
     withLock key m1 \(Ur str1) key -> L.do
       (ret, key) <- withLock key m2 \(Ur str2) key -> L.do
-        L.fromSystemIO (putStrLn $ str1)
+        L.fromSystemIO (putStrLn $ str1 <> " " <> str2)
         L.pure (Ur str2, Ur (), key)
       L.pure (Ur str1, ret, key)
