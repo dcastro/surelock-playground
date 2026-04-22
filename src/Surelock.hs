@@ -22,7 +22,7 @@ data MutexKey (lvl :: Nat) (scope :: Type) = MutexKey
 
 data Mutex (lvl :: Nat) a = Mutex {getVar :: MVar a}
 
--- | Consume the key and return a new one in linear IO
+-- | Consume the key and return a new key (with an increased level) in linear IO
 lock ::
   forall a keyLvl mutexLvl scope.
   (keyLvl <= mutexLvl) =>
@@ -32,6 +32,21 @@ lock ::
 lock MutexKey m = L.do
   a <- L.fromSystemIOU L.$ MVar.takeMVar m.getVar
   L.pure (a, MutexKey)
+
+withLock ::
+  forall a keyLvl mutexLvl lastLvl scope ret.
+  (keyLvl <= mutexLvl) =>
+  MutexKey keyLvl scope %1 ->
+  Mutex mutexLvl a ->
+  (Ur a %1 -> MutexKey (mutexLvl + 1) scope %1 -> L.IO (Ur a, Ur ret, MutexKey lastLvl scope)) ->
+  L.IO (Ur ret, MutexKey lastLvl scope)
+withLock MutexKey m run = L.do
+  a <- L.fromSystemIOU L.$ MVar.takeMVar m.getVar
+  (Ur a', ret, key) <- run a MutexKey
+
+  L.fromSystemIO L.$ MVar.putMVar m.getVar a'
+
+  L.pure (ret, key)
 
 mkMutex :: forall lvl a. a -> IO (Mutex lvl a)
 mkMutex a = do
@@ -88,3 +103,14 @@ usage1 = do
 --     (Ur _, key) <- lock key m2
 --     (Ur _, key) <- lock key m1
 --     L.pure (Ur (), key)
+
+usage3 :: IO ()
+usage3 = do
+  m1 <- mkMutex @0 "hello"
+  m2 <- mkMutex @1 "world"
+  lockScope \key -> L.do
+    withLock key m1 \(Ur str1) key -> L.do
+      (ret, key) <- withLock key m2 \(Ur str2) key -> L.do
+        L.fromSystemIO (putStrLn $ str1)
+        L.pure (Ur str2, Ur (), key)
+      L.pure (Ur str1, ret, key)
