@@ -28,7 +28,6 @@ library
       Lib
       Playground1
       Surelock
-      Surelock.RIO
       SurelockRIO
   other-modules:
       Paths_surelock_playground
