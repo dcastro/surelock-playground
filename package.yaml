@@ -25,6 +25,8 @@ dependencies:
   - async
   - text
   - containers
+  - stm-containers
+  - focus
 
 default-extensions:
   - GHC2024

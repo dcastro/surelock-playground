@@ -7,13 +7,18 @@
 
 module SurelockRIO where
 
-import Control.Concurrent (MVar)
+import Control.Concurrent (MVar, ThreadId, myThreadId)
 import Control.Concurrent qualified as MVar
+import Control.Exception (Exception (..), bracket_, throw)
 import Control.Functor.Linear qualified as L
 import Data.Kind (Type)
-import GHC.TypeLits
+import Focus qualified
+import GHC.Conc (atomically)
+import GHC.IO (unsafePerformIO)
+import GHC.TypeLits (Nat, type (+), type (<=))
 import Prelude.Linear (Ur (..))
 import Prelude.Linear qualified as L hiding (IO)
+import StmContainers.Set qualified as StmSet
 import System.IO.Linear qualified as L
 import System.IO.Resource.Linear (RIO)
 import System.IO.Resource.Linear qualified as RIO
@@ -91,19 +96,8 @@ mkMutex a = do
 --
 -- The key is indexed by a rank-2 type variable `scope` to prevent it from
 -- being used outside of the scope of `lockScope`.
-lockScope' ::
-  forall a lvl.
-  ( forall (scope :: Type).
-    MutexKey 0 scope %1 ->
-    RIO (a, MutexKey lvl scope)
-  ) ->
-  RIO a
-lockScope' run = L.do
-  let key = MutexKey @0
-  (a, MutexKey) <- run key
-  L.pure a
-
--- | Like `lockScope'`, but returns in non-linear `System.IO`.
+--
+-- WARNING: Will throw a `NestedLocksScopeException` if a nested `lockScope` is created at runtime.
 lockScope ::
   forall a lvl.
   ( forall (scope :: Type).
@@ -111,8 +105,59 @@ lockScope ::
     RIO (Ur a, MutexKey lvl scope)
   ) ->
   IO a
-lockScope run =
-  RIO.run (lockScope' run)
+lockScope run = do
+  ensureNotNested do
+    RIO.run L.do
+      let key = MutexKey @0
+      (a, MutexKey) <- run key
+      L.pure a
+  where
+    -- Ensures nested lock scopes are not created.
+    -- We can't really detect this at compile-time, so we'll make do with a runtime check.
+    ensureNotNested :: IO a -> IO a
+    ensureNotNested action = do
+      tid <- myThreadId
+      bracket_
+        -- Acquire: register the thread ID in the set of active lock scopes.
+        ( do
+            success <- atomically do
+              StmSet.focus
+                ( do
+                    -- Check if the thread ID is already in the set.
+                    Focus.lookup >>= \case
+                      Just () ->
+                        -- The thread ID was found in the set, which means we're trying to create a nested lock scope.
+                        -- We return `False` to signal an error.
+                        pure False
+                      Nothing -> do
+                        Focus.insert ()
+                        pure True
+                )
+                tid
+                lockScopes
+            if success
+              then pure ()
+              else throw NestedLocksScopeException
+        )
+        -- Release: remove the thread ID from the set of active lock scopes.
+        ( atomically do
+            StmSet.delete tid lockScopes
+        )
+        action
+
+data NestedLocksScopeException = NestedLocksScopeException
+  deriving stock (Show)
+
+instance Exception NestedLocksScopeException where
+  displayException NestedLocksScopeException = "Nested lock scopes are not allowed"
+
+-- | A set of the ThreadIds currently holding a lock scope.
+-- We use this to prevent nested lock scopes at runtime.
+{-# NOINLINE lockScopes #-}
+lockScopes :: StmSet.Set ThreadId
+lockScopes =
+  -- See: https://wiki.haskell.org/index.php?oldid=64612
+  unsafePerformIO StmSet.newIO
 
 ----------------------------------------------------------------------------
 -- Usage examples
@@ -156,6 +201,25 @@ usage3 = do
     Internal.unsafeFromSystemIO (putStrLn $ str1 <> " " <> str2)
 
     releaseGuard mg1
+    releaseGuard mg2
+
+    L.pure (Ur (), key)
+
+-- Nested `lockScope`s.
+-- This should throw an exception.
+usage4 :: IO ()
+usage4 = do
+  m1 <- mkMutex @0 "hello"
+  m2 <- mkMutex @1 "world"
+  lockScope \key -> L.do
+    (mg2, key) <- lock key m2
+
+    -- Attempt to use nested lockScopes to acquire locks out of order.
+    Internal.unsafeFromSystemIO L.$ lockScope \key -> L.do
+      (mg1, key) <- lock key m1
+      releaseGuard mg1
+      L.pure (Ur (), key)
+
     releaseGuard mg2
 
     L.pure (Ur (), key)
